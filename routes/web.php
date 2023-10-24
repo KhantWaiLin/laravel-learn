@@ -2,11 +2,15 @@
 
 use App\Http\Controllers\Profile\AvatarController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TicketController;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 use function Laravel\Prompts\password;
+use OpenAI\Laravel\Facades\OpenAI;
+use Laravel\Socialite\Facades\Socialite;
 
 /*
 |--------------------------------------------------------------------------
@@ -72,5 +76,40 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile/avatar', [AvatarController::class, 'update'])->name('profile.avatar');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
-
 require __DIR__ . '/auth.php';
+
+// Route::get('/openai', function () {
+//     $result = OpenAI::completions()->create([
+//         'model' => 'text-davinci-003',
+//         'prompt' => 'PHP is',
+//     ]);
+
+//     echo $result['choices'][0]['text'];
+// });
+Route::get('/auth/redirect', function () {
+    return Socialite::driver('github')->redirect();
+})->name('login.github');
+
+Route::get('/auth/callback', function () {
+    $user = Socialite::driver('github')->user();
+    // dd($user);
+    $user = User::firstOrCreate([
+        'email' => $user->email,
+    ], [
+        'name' => $user->nickname,
+        'password' => 'password'
+    ]);
+    // $user = User::find(
+    //     'email',
+    //     $user->email,
+    // );
+    Auth::login($user);
+
+    return redirect('/dashboard');
+});
+
+Route::middleware('auth')->prefix('ticket')->group(function () {
+    Route::resource('/', TicketController::class);
+    // Route::get("/ticket/create", [TicketController::class, 'create'])->name('ticket.create');
+    // Route::post("/ticket/create", [TicketController::class], 'store')->name('ticket.create');
+});
